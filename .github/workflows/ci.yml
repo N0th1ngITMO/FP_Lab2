@@ -48,5 +48,5 @@ jobs:
       - name: Tests
         run: |
             dotnet restore test/TestProject.fsproj
-            dotnet build ./TestProject
-            dotnet test ./TestProject
+            dotnet build ./test
+            dotnet test ./test
