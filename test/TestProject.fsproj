@@ -21,7 +21,7 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\FP_Lab2.fsproj" />
+		<ProjectReference Include="..\lab2\FP_Lab2.fsproj" />
 	</ItemGroup>
 
 </Project>
