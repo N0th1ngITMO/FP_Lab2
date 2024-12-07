@@ -1,0 +1,52 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      
+jobs:
+  build:
+  
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4.0.1
+        with:
+          dotnet-version: '8.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore lab2/FP_Lab2.fsproj
+
+      - name: Build project
+        run: dotnet build ./lab2
+
+      - name: Set DOTNET_ROLL_FORWARD
+        run: echo "DOTNET_ROLL_FORWARD=latestMajor" >> $GITHUB_ENV
+      - name: Lint
+        run: |
+          dotnet tool install -g dotnet-fsharplint
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+          dotnet fsharplint lint ./lab2
+
+      - name: Formatter
+        run: |
+          dotnet tool install -g fantomas-tool
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+          fantomas ./lab2/*.fs 
+    
+      
+        
+      - name: Run project
+        run: dotnet run --project ./lab2
+
+
+      - name: Tests
+        run: |
+            dotnet restore test/TestProject.fsproj
+            dotnet build ./TestProject
+            dotnet test ./TestProject
