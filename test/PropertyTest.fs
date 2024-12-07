@@ -10,7 +10,7 @@ type ArbitraryHashMap<'k, 'v when 'k : comparison and 'v : comparison>() =
     static member HashMap =
         Arb.fromGen <|
             gen {
-                let! size = Gen.choose (5, 20) // Размер таблицы от 5 до 20
+                let! size = Gen.choose (5, 20)
                 let! keyValuePairs = Gen.listOfLength size (Gen.zip (Arb.generate<'k>) (Arb.generate<'v>))
                 return List.fold (fun acc (k, v) -> acc.Add(k, v)) (SeparateChainingHashMap(10, hash)) keyValuePairs
             }
