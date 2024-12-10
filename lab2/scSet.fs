@@ -37,14 +37,18 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
                 this
     
         let index = updatedMap.GetBucketIndex key
-        let updatedBucket = 
-            updatedMap.Buckets.[index]
-            |> Set.filter (fun (k, _) -> k <> key)
-            |> Set.add (key, value)
+        let currentBucket = updatedMap.Buckets.[index]
+        if currentBucket |> Set.exists (fun (k, v) -> k = key && v = value) then
+            this
+        else
+            let updatedBucket = 
+                currentBucket
+                |> Set.filter (fun (k, _) -> k <> key)
+                |> Set.add (key, value)
+            let newBuckets = Array.copy updatedMap.Buckets
+            newBuckets.[index] <- updatedBucket
+            SeparateChainingHashMap(newBuckets, updatedMap.HashFunction)
 
-        let newBuckets = Array.copy updatedMap.Buckets
-        newBuckets.[index] <- updatedBucket
-        SeparateChainingHashMap(newBuckets, updatedMap.HashFunction)
 
     member this.Remove (key: 'k) =
         let index = this.GetBucketIndex key
@@ -87,9 +91,7 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
         if map1.BucketCount <> map2.BucketCount then false
         else
             let compareBuckets (bucket1: Set<'k * 'v>) (bucket2: Set<'k * 'v>) =
-                let keys1 = bucket1 |> Set.map fst
-                let keys2 = bucket2 |> Set.map fst
-                if keys1 <> keys2 then false
+                if bucket1 <> bucket2 then false
                 else
                     bucket1
                     |> Set.forall (fun (k, v) ->
@@ -99,10 +101,9 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
             Array.forall2 compareBuckets map1.Buckets map2.Buckets
 
 
-    static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) =
-        if map1.BucketCount <> map2.BucketCount then
-            failwith "Both hash maps must have the same number of buckets to merge"
-        else
-            let mergedBuckets =
-                Array.map2 (fun b1 b2 -> Set.union b1 b2) map1.Buckets map2.Buckets
-            SeparateChainingHashMap(mergedBuckets, map1.HashFunction)
+    static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
+        let set1 = map1.ToSet()
+        let set2 = map2.ToSet()
+        let mergedSet = Set.union set1 set2
+        let newMap = SeparateChainingHashMap(map1.BucketCount, map1.HashFunction)
+        mergedSet |> Set.fold (fun acc (k, v) -> acc.Add k v) newMap
