@@ -88,17 +88,19 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
     
 
     static member Compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : bool =
-        if map1.BucketCount <> map2.BucketCount then false
+        if map1.Count() <> map2.Count() then
+            false
         else
-            let compareBuckets (bucket1: Set<'k * 'v>) (bucket2: Set<'k * 'v>) =
-                if bucket1 <> bucket2 then false
-                else
-                    bucket1
-                    |> Set.forall (fun (k, v) ->
-                        bucket2 |> Set.exists (fun (k2, v2) -> k = k2 && v = v2)
+            let rec checkBuckets (buckets: Set<'k * 'v> array) =
+                buckets
+                |> Array.forall (fun bucket ->
+                    bucket |> Set.forall (fun (k, v) ->
+                        let bucketIndex = map2.GetBucketIndex k
+                        map2.Buckets.[bucketIndex] |> Set.contains (k, v)
                     )
+                )
+            checkBuckets map1.Buckets
 
-            Array.forall2 compareBuckets map1.Buckets map2.Buckets
 
 
     static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
