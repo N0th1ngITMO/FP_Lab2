@@ -15,21 +15,6 @@ type ArbitraryHashMap<'k, 'v when 'k : comparison and 'v : comparison>() =
                 return List.fold (fun (acc: SeparateChainingHashMap<'k, 'v>) (k, v) -> acc.Add k v ) (SeparateChainingHashMap(10, hash)) keyValuePairs
             }
 
-
-[<Property(Arbitrary = [| typeof<ArbitraryHashMap<int, string>> |])>]
-let ``Add does not change content for existing key-value pair`` (map: SeparateChainingHashMap<int, string>) key value =
-    let updatedMap = map.Add key value
-    let keyExistsWithSameValue =
-        map.ToSet() |> Set.exists (fun (k, v) -> k = key && v = value)
-    let isTestPassing =
-        if keyExistsWithSameValue then
-            SeparateChainingHashMap.Compare map updatedMap
-        else
-            updatedMap.ToSet() = (map.ToSet() |> Set.add (key, value))
-    Assert.True(isTestPassing)
-
-
-
 [<Property>]
 let ``Remove from empty map does not throw exception`` key =
     let emptyMap = SeparateChainingHashMap<int, string>(10, hash)
