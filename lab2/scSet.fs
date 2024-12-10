@@ -104,6 +104,11 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
     static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
         let set1 = map1.ToSet()
         let set2 = map2.ToSet()
-        let mergedSet = Set.union set1 set2
+        let mergedSet =
+            set2
+            |> Set.fold (fun acc (k, v) ->
+                if acc |> Set.exists (fun (k1, _) -> k1 = k) then acc
+                else Set.add (k, v) acc
+            ) set1
         let newMap = SeparateChainingHashMap(map1.BucketCount, map1.HashFunction)
         mergedSet |> Set.fold (fun acc (k, v) -> acc.Add k v) newMap
