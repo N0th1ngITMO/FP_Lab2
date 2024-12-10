@@ -1,4 +1,4 @@
-﻿module scSet
+module scSet
 
 open System
 open System.Collections.Generic
@@ -35,11 +35,13 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
                 this.Rehash(this.BucketCount * 2)
             else
                 this
+    
         let index = updatedMap.GetBucketIndex key
         let updatedBucket = 
             updatedMap.Buckets.[index]
             |> Set.filter (fun (k, _) -> k <> key)
             |> Set.add (key, value)
+
         let newBuckets = Array.copy updatedMap.Buckets
         newBuckets.[index] <- updatedBucket
         SeparateChainingHashMap(newBuckets, updatedMap.HashFunction)
@@ -76,9 +78,27 @@ type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buck
             Set.foldBack (fun (k, v) acc' -> folder k v acc') bucket acc
         ) buckets state
 
+
     member this.ToSet() =
         buckets |> Array.fold (fun acc bucket -> Set.union acc bucket) Set.empty
     
+
+    static member Compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : bool =
+        if map1.BucketCount <> map2.BucketCount then false
+        else
+            let compareBuckets (bucket1: Set<'k * 'v>) (bucket2: Set<'k * 'v>) =
+                let keys1 = bucket1 |> Set.map fst
+                let keys2 = bucket2 |> Set.map fst
+                if keys1 <> keys2 then false
+                else
+                    bucket1
+                    |> Set.forall (fun (k, v) ->
+                        bucket2 |> Set.exists (fun (k2, v2) -> k = k2 && v = v2)
+                    )
+
+            Array.forall2 compareBuckets map1.Buckets map2.Buckets
+
+
     static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) =
         if map1.BucketCount <> map2.BucketCount then
             failwith "Both hash maps must have the same number of buckets to merge"
