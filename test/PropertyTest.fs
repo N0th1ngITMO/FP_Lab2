@@ -50,11 +50,11 @@ let ``Merge is associative`` (map1: SeparateChainingHashMap<int, string>)
     Assert.True(SeparateChainingHashMap.Compare merged2 merged4)
 
 
-[<Property>]
-let ``Compare maps with different data returns false`` (pairs1: (int * string) list) (pairs2: (int * string) list) =
-    let map1 = List.fold (fun (acc: SeparateChainingHashMap<int, string>) (k, v) -> acc.Add k v) (SeparateChainingHashMap(10, hash)) pairs1
-    let map2 = List.fold (fun (acc: SeparateChainingHashMap<int, string>) (k, v) -> acc.Add k v) (SeparateChainingHashMap(10, hash)) pairs2
-    if pairs1 <> pairs2 then
-        Assert.False(SeparateChainingHashMap.Compare map1 map2)
-    else
-        Assert.True(SeparateChainingHashMap.Compare map1 map2)
+[<Property(Arbitrary = [| typeof<ArbitraryHashMap<int, string>> |])>]
+let ``Compare returns false for different data`` (map1: SeparateChainingHashMap<int, string>) =
+    let map2 = 
+        map1.Buckets
+        |> Array.collect Set.toArray
+        |> Array.map (fun (k, v) -> (k, v + "_diff"))
+        |> Array.fold (fun (acc: SeparateChainingHashMap<int, string>) (k, v) -> acc.Add k v) (SeparateChainingHashMap<int, string>(10, hash))
+    Assert.False(SeparateChainingHashMap.Compare map1 map2)
