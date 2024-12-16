@@ -12,27 +12,24 @@ type ArbitraryHashMap<'k, 'v when 'k : comparison and 'v : comparison>() =
             gen {
                 let! size = Gen.choose (5, 20)
                 let! keyValuePairs = Gen.listOfLength size (Gen.zip (Arb.generate<'k>) (Arb.generate<'v>))
-                return List.fold (fun (acc: SeparateChainingHashMap<'k, 'v>) (k, v) -> acc.Add k v ) (SeparateChainingHashMap(10, hash)) keyValuePairs
+                return List.fold (fun (acc: SeparateChainingHashMap<'k, 'v>) (k, v) -> add k v acc) (create 10 hash) keyValuePairs
             }
+            
 
 [<Property>]
 let ``Remove from empty map does not throw exception`` key =
-    let emptyMap = SeparateChainingHashMap<int, string>(10, hash)
-    let updatedMap = emptyMap.Remove(key)
-    Assert.True(SeparateChainingHashMap.Compare emptyMap updatedMap)
+    let emptyMap : SeparateChainingHashMap<int, int> = create 10 hash
+    let updatedMap = remove key emptyMap
+    Assert.True(compare emptyMap updatedMap)
+
 
 [<Property(Arbitrary = [| typeof<ArbitraryHashMap<int, string>> |])>]
 let ``Merge is associative`` (map1: SeparateChainingHashMap<int, string>) 
                               (map2: SeparateChainingHashMap<int, string>) 
                               (map3: SeparateChainingHashMap<int, string>) =
-
-    let merged1: SeparateChainingHashMap<int, string> = SeparateChainingHashMap.Merge map1 map2
-    let merged2: SeparateChainingHashMap<int, string> = SeparateChainingHashMap.Merge merged1 map3
-
-    let merged3: SeparateChainingHashMap<int, string> = SeparateChainingHashMap.Merge map2 map3
-    let merged4: SeparateChainingHashMap<int, string> = SeparateChainingHashMap.Merge map1 merged3
-
-    Assert.True(SeparateChainingHashMap.Compare merged2 merged4)
+    let merged1 = merge (merge map1 map2) map3
+    let merged2 = merge map1 (merge map2 map3)
+    Assert.True(compare merged1 merged2)
 
 
 [<Property(Arbitrary = [| typeof<ArbitraryHashMap<int, string>> |])>]
@@ -41,5 +38,5 @@ let ``Compare returns false for different data`` (map1: SeparateChainingHashMap<
         map1.Buckets
         |> Array.collect Set.toArray
         |> Array.map (fun (k, v) -> (k, v + "_diff"))
-        |> Array.fold (fun (acc: SeparateChainingHashMap<int, string>) (k, v) -> acc.Add k v) (SeparateChainingHashMap<int, string>(10, hash))
-    Assert.False(SeparateChainingHashMap.Compare map1 map2)
+        |> Array.fold (fun (acc: SeparateChainingHashMap<int, string>) (k, v) -> add k v acc) (create 10 hash)
+    Assert.False(compare map1 map2)
