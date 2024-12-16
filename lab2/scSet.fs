@@ -55,10 +55,10 @@ let remove (key: 'k) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHas
     Array.set newBuckets index updatedBucket
     { map with Buckets = newBuckets }
 
-let map (f: 'k -> 'v -> 'v) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHashMap<'k, 'v> =
+let map (f: 'k -> 'v -> 'u) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHashMap<'k, 'u> =
     let mappedBuckets =
         map.Buckets |> Array.map (Set.map (fun (k, v) -> (k, f k v)))
-    { map with Buckets = mappedBuckets }
+    { Buckets = mappedBuckets; HashFunction = map.HashFunction}
 
 let filter (predicate: 'k -> 'v -> bool) (map: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
     let filteredBuckets =
