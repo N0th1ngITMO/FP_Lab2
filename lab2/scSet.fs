@@ -3,114 +3,96 @@ module scSet
 open System
 open System.Collections.Generic
 
-type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v:comparison>(buckets: Set<'k * 'v> array, hashFunction: 'k -> int) =
-    
-    new(bucketCount: int, hashFunction: 'k -> int) =
-        let emptyBuckets = Array.init bucketCount (fun _ -> Set.empty)
-        SeparateChainingHashMap(emptyBuckets, hashFunction)
-    
-    member this.Buckets = buckets
-    member this.HashFunction = hashFunction
-    member this.BucketCount = buckets.Length
+type SeparateChainingHashMap<'k, 'v when 'k : comparison and 'v : comparison> = {
+    Buckets: Set<'k * 'v> array
+    HashFunction: 'k -> int
+}
 
-    member private this.GetBucketIndex (key: 'k) =
-        abs (hashFunction key) % this.BucketCount
+let create (bucketCount: int) (hashFunction: 'k -> int) : SeparateChainingHashMap<'k, 'v> =
+    let emptyBuckets = Array.init bucketCount (fun _ -> Set.empty<'k * 'v>)
+    { Buckets = emptyBuckets; HashFunction = hashFunction }
 
-    member this.Count() =
-        buckets
-        |> Array.sumBy (fun bucket -> bucket.Count)
+let getBucketIndex (map: SeparateChainingHashMap<'k, 'v>) (key: 'k) =
+    abs (map.HashFunction key) % map.Buckets.Length
 
-    member private this.Rehash (newBucketCount: int) =
-        let newBuckets = Array.init newBucketCount (fun _ -> Set.empty)
-        let newHashFunction = fun key -> abs (hashFunction key) % newBucketCount
-        for bucket in buckets do
-            for (key, value) in bucket do
-                let index = abs (newHashFunction key)
-                newBuckets.[index] <- Set.add (key, value) newBuckets.[index]
-        SeparateChainingHashMap(newBuckets, newHashFunction)
+let count (map: SeparateChainingHashMap<'k, 'v>) =
+    map.Buckets |> Array.sumBy (fun bucket -> bucket.Count)
 
-    member this.Add (key: 'k) (value: 'v) =
-        let updatedMap =
-            if float (this.Count()) / float this.BucketCount >= 0.7 then
-                this.Rehash(this.BucketCount * 2)
-            else
-                this
-    
-        let index = updatedMap.GetBucketIndex key
-        let currentBucket = updatedMap.Buckets.[index]
-        if currentBucket |> Set.exists (fun (k, v) -> k = key && v = value) then
-            this
+let rehash (map: SeparateChainingHashMap<'k, 'v>) (newBucketCount: int) : SeparateChainingHashMap<'k, 'v> =
+    let newBuckets = Array.init newBucketCount (fun _ -> Set.empty<'k * 'v>)
+    let newHashFunction = fun key -> abs (map.HashFunction key) % newBucketCount
+    let redistributed =
+        map.Buckets
+        |> Array.collect Set.toArray
+        |> Array.fold (fun (acc : Set<'k * 'v> array) (key, value) ->
+            let index = abs (newHashFunction key)
+            let updatedBucket = Set.add (key, value) acc.[index]
+            Array.set acc index updatedBucket
+            acc
+        ) newBuckets
+    { Buckets = redistributed; HashFunction = newHashFunction }
+
+let add (key: 'k) (value: 'v) (map: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
+    let updatedMap =
+        if float (count map) / float map.Buckets.Length >= 0.7 then
+            rehash map (map.Buckets.Length * 2)
         else
-            let updatedBucket = 
-                currentBucket
-                |> Set.filter (fun (k, _) -> k <> key)
-                |> Set.add (key, value)
-            let newBuckets = Array.copy updatedMap.Buckets
-            newBuckets.[index] <- updatedBucket
-            SeparateChainingHashMap(newBuckets, updatedMap.HashFunction)
+            map
+    let index = getBucketIndex updatedMap key
+    let currentBucket = updatedMap.Buckets.[index]
+    let updatedBucket =
+        currentBucket
+        |> Set.filter (fun (k, _) -> k <> key)
+        |> Set.add (key, value)
+    let newBuckets = Array.copy updatedMap.Buckets
+    Array.set newBuckets index updatedBucket
+    { updatedMap with Buckets = newBuckets }
 
+let remove (key: 'k) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHashMap<'k, 'v> =
+    let index = getBucketIndex map key
+    let updatedBucket = map.Buckets.[index] |> Set.filter (fun (k, _) -> k <> key)
+    let newBuckets = Array.copy map.Buckets
+    Array.set newBuckets index updatedBucket
+    { map with Buckets = newBuckets }
 
-    member this.Remove (key: 'k) =
-        let index = this.GetBucketIndex key
-        let updatedBucket =
-            buckets.[index]
-            |> Set.filter (fun (k, _) -> k <> key)
-        let newBuckets = Array.copy buckets
-        newBuckets.[index] <- updatedBucket
-        SeparateChainingHashMap(newBuckets, hashFunction)
+let map (f: 'k -> 'v -> 'v) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHashMap<'k, 'v> =
+    let mappedBuckets =
+        map.Buckets |> Array.map (Set.map (fun (k, v) -> (k, f k v)))
+    { map with Buckets = mappedBuckets }
 
-    member this.Map (f: 'k -> 'v -> 'v) =
-        let mappedBuckets =
-            buckets
-            |> Array.map (Set.map (fun (k, v) -> (k, f k v)))
-        SeparateChainingHashMap(mappedBuckets, hashFunction)
+let filter (predicate: 'k -> 'v -> bool) (map: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
+    let filteredBuckets =
+        map.Buckets |> Array.map (Set.filter (fun (k, v) -> predicate k v))
+    { map with Buckets = filteredBuckets }
 
-    member this.Filter (predicate: 'k -> 'v -> bool) =
-        let filteredBuckets =
-            buckets
-            |> Array.map (Set.filter (fun (k, v) -> predicate k v))
-        SeparateChainingHashMap(filteredBuckets, hashFunction)
+let foldLeft (map: SeparateChainingHashMap<'k, 'v>) (folder: 'state -> 'k -> 'v -> 'state) (state: 'state) : 'state =
+    map.Buckets |> Array.fold (fun acc bucket -> Set.fold (fun acc' (k, v) -> folder acc' k v) acc bucket) state
 
-    member this.FoldLeft (folder: 'state -> 'k -> 'v -> 'state) (state: 'state) =
-        buckets
-        |> Array.fold (fun acc bucket -> 
-            bucket |> Set.fold (fun acc' (k, v) -> folder acc' k v) acc
-        ) state
+let foldRight (map: SeparateChainingHashMap<'k, 'v>) (folder: 'k -> 'v -> 'state -> 'state) (state: 'state) : 'state =
+    map.Buckets |> Array.foldBack (fun bucket acc -> Set.foldBack (fun (k, v) acc' -> folder k v acc') bucket acc) state
 
-    member this.FoldRight (folder: 'k -> 'v -> 'state -> 'state) (state: 'state) =
-        Array.foldBack (fun bucket acc -> 
-            Set.foldBack (fun (k, v) acc' -> folder k v acc') bucket acc
-        ) buckets state
+let toSet (map: SeparateChainingHashMap<'k, 'v>) : Set<'k * 'v> =
+    map.Buckets |> Array.fold (fun acc bucket -> Set.union acc bucket) Set.empty
 
+let compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : bool =
+    if count map1 <> count map2 then
+        false
+    else
+        map1.Buckets
+        |> Array.forall (fun bucket ->
+            bucket |> Set.forall (fun (k, v) ->
+                let bucketIndex = getBucketIndex map2 k
+                map2.Buckets.[bucketIndex] |> Set.contains (k, v)
+            )
+        )
 
-    member this.ToSet() =
-        buckets |> Array.fold (fun acc bucket -> Set.union acc bucket) Set.empty
-    
-
-    static member Compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : bool =
-        if map1.Count() <> map2.Count() then
-            false
-        else
-            let rec checkBuckets (buckets: Set<'k * 'v> array) =
-                buckets
-                |> Array.forall (fun bucket ->
-                    bucket |> Set.forall (fun (k, v) ->
-                        let bucketIndex = map2.GetBucketIndex k
-                        map2.Buckets.[bucketIndex] |> Set.contains (k, v)
-                    )
-                )
-            checkBuckets map1.Buckets
-
-
-
-    static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
-        let set1 = map1.ToSet()
-        let set2 = map2.ToSet()
-        let mergedSet =
-            set2
-            |> Set.fold (fun acc (k, v) ->
-                if acc |> Set.exists (fun (k1, _) -> k1 = k) then acc
-                else Set.add (k, v) acc
-            ) set1
-        let newMap = SeparateChainingHashMap(map1.BucketCount, map1.HashFunction)
-        mergedSet |> Set.fold (fun acc (k, v) -> acc.Add k v) newMap
+let merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
+    let set1 = toSet map1
+    let set2 = toSet map2
+    let mergedSet =
+        set2 |> Set.fold (fun acc (k, v) ->
+            if acc |> Set.exists (fun (k1, _) -> k1 = k) then acc
+            else Set.add (k, v) acc
+        ) set1
+    create map1.Buckets.Length map1.HashFunction
+    |> fun map -> Set.fold (fun acc (k, v) -> add k v acc) map mergedSet
