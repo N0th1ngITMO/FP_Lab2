@@ -7,112 +7,83 @@ open scSet
 [<Fact>]
 let ``Test Add method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, string>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 "One"
-        |> fun m -> m.Add 2 "Two"
-    Assert.Equal(2, updatedMap.Count())
-    Assert.Contains((1, "One"), updatedMap.ToSet())
-    Assert.Contains((2, "Two"), updatedMap.ToSet())
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 "One" |> add 2 "Two"
+    Assert.Equal(2, count updatedMap)
+    Assert.Contains((1, "One"), toSet updatedMap)
+    Assert.Contains((2, "Two"), toSet updatedMap)
 
 [<Fact>]
 let ``Test Remove method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, string>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 "One"
-        |> fun m -> m.Add 2 "Two"
-        |> fun m -> m.Remove 1
-    Assert.Equal(1, updatedMap.Count())
-    Assert.DoesNotContain((1, "One"), updatedMap.ToSet())
-    Assert.Contains((2, "Two"), updatedMap.ToSet())
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 "One" |> add 2 "Two" |> remove 1
+    Assert.Equal(1, count updatedMap)
+    Assert.DoesNotContain((1, "One"), toSet updatedMap)
+    Assert.Contains((2, "Two"), toSet updatedMap)
 
 [<Fact>]
 let ``Test Map method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, int>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 10
-        |> fun m -> m.Add 2 20
-        |> fun m -> m.Map(fun _ v -> v * 2)
-    Assert.Equal(2, updatedMap.Count())
-    Assert.Contains((1, 20), updatedMap.ToSet())
-    Assert.Contains((2, 40), updatedMap.ToSet())
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 10 |> add 2 20 |> map (fun _ v -> v * 2)
+    Assert.Equal(2, count updatedMap)
+    Assert.Contains((1, 20), toSet updatedMap)
+    Assert.Contains((2, 40), toSet updatedMap)
 
 [<Fact>]
 let ``Test Filter method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, int>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 10
-        |> fun m -> m.Add 2 20
-        |> fun m -> m.Filter(fun _ v -> v > 10)
-    Assert.Equal(1, updatedMap.Count())
-    Assert.DoesNotContain((1, 10), updatedMap.ToSet())
-    Assert.Contains((2, 20), updatedMap.ToSet())
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 10 |> add 2 20 |> filter (fun _ v -> v > 10)
+    Assert.Equal(1, count updatedMap)
+    Assert.DoesNotContain((1, 10), toSet updatedMap)
+    Assert.Contains((2, 20), toSet updatedMap)
 
 [<Fact>]
 let ``Test FoldLeft method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, int>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 10
-        |> fun m -> m.Add 2 20
-        |> fun m -> m.Add 3 30
-    let sum = updatedMap.FoldLeft(fun acc _ v -> acc + v) 0
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 10 |> add 2 20 |> add 3 30
+    let sum = foldLeft updatedMap (fun acc _ v -> acc + v) 0
     Assert.Equal(60, sum)
 
 [<Fact>]
 let ``Test FoldRight method`` () =
-    let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, int>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 10
-        |> fun m -> m.Add 2 20
-        |> fun m -> m.Add 3 30
-    let sum = updatedMap.FoldRight(fun _ v acc -> acc + v) 0
+    let hashFunc (key: int) = key.GetHashCode()
+    let hashMap = create 5 hashFunc
+    let updatedMap = hashMap |> add 1 10 |> add 2 20 |> add 3 30
+    let sum = foldLeft updatedMap (fun acc _ v -> acc + v) 0
     Assert.Equal(60, sum)
+
 
 [<Fact>]
 let ``Test Rehash method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, string>(2, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 "One"
-        |> fun m -> m.Add 2 "Two"
-        |> fun m -> m.Add 3 "Three"
-    Assert.True(updatedMap.BucketCount > 2)
-    Assert.Equal(3, updatedMap.Count())
-    Assert.Contains((1, "One"), updatedMap.ToSet())
-    Assert.Contains((2, "Two"), updatedMap.ToSet())
-    Assert.Contains((3, "Three"), updatedMap.ToSet())
+    let hashMap = create 2 hashFunction
+    let updatedMap = hashMap |> add 1 "One" |> add 2 "Two" |> add 3 "Three"
+    Assert.True(count updatedMap > 2)
+    Assert.Equal(3, count updatedMap)
+    Assert.Contains((1, "One"), toSet updatedMap)
+    Assert.Contains((2, "Two"), toSet updatedMap)
+    Assert.Contains((3, "Three"), toSet updatedMap)
 
 [<Fact>]
 let ``Test Merge method`` () =
     let hashFunction key = key.GetHashCode()
-    let map1 = SeparateChainingHashMap<int, string>(5, hashFunction).Add 1 "One"
-    let map2 = SeparateChainingHashMap<int, string>(5, hashFunction).Add 2 "Two"
-    let mergedMap = SeparateChainingHashMap.Merge map1 map2
-    Assert.Equal(2, mergedMap.Count())
-    Assert.Contains((1, "One"), mergedMap.ToSet())
-    Assert.Contains((2, "Two"), mergedMap.ToSet())
+    let map1 = create 5 hashFunction |> add 1 "One"
+    let map2 = create 5 hashFunction |> add 2 "Two"
+    let mergedMap = merge map1 map2
+    Assert.Equal(2, count mergedMap)
+    Assert.Contains((1, "One"), toSet mergedMap)
+    Assert.Contains((2, "Two"), toSet mergedMap)
 
 [<Fact>]
 let ``Test ToSet method`` () =
     let hashFunction key = key.GetHashCode()
-    let hashMap = SeparateChainingHashMap<int, string>(5, hashFunction)
-    let updatedMap = 
-        hashMap
-        |> fun m -> m.Add 1 "One"
-        |> fun m -> m.Add 2 "Two"
-    let resultSet = updatedMap.ToSet()
+    let hashMap = create 5 hashFunction
+    let updatedMap = hashMap |> add 1 "One" |> add 2 "Two"
+    let resultSet = toSet updatedMap
     Assert.Contains((1, "One"), resultSet)
     Assert.Contains((2, "Two"), resultSet)
     Assert.Equal(2, resultSet.Count)
