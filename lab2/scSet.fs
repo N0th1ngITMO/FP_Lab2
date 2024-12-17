@@ -78,21 +78,20 @@ let compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashM
     if count map1 <> count map2 then
         false
     else
-        map1.Buckets
-        |> Array.forall (fun bucket ->
-            bucket |> Set.forall (fun (k, v) ->
-                let bucketIndex = getBucketIndex map2 k
-                map2.Buckets.[bucketIndex] |> Set.contains (k, v)
-            )
-        )
+        let entries1 = 
+            map1.Buckets 
+            |> Array.collect Set.toArray
+            |> Set.ofArray
+        let entries2 = 
+            map2.Buckets 
+            |> Array.collect Set.toArray
+            |> Set.ofArray
+        entries1 = entries2
+
 
 let merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
-    let set1 = toSet map1
-    let set2 = toSet map2
-    let mergedSet =
-        set2 |> Set.fold (fun acc (k, v) ->
-            if acc |> Set.exists (fun (k1, _) -> k1 = k) then acc
-            else Set.add (k, v) acc
-        ) set1
-    create map1.Buckets.Length map1.HashFunction
-    |> fun map -> Set.fold (fun acc (k, v) -> add k v acc) map mergedSet
+    map1.Buckets
+    |> Array.fold (fun acc bucket ->
+        bucket
+        |> Set.fold (fun accMap (k, v) -> add k v accMap) acc
+    ) map2
