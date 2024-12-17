@@ -78,15 +78,12 @@ let compare (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashM
     if count map1 <> count map2 then
         false
     else
-        let entries1 = 
-            map1.Buckets 
-            |> Array.collect Set.toArray
-            |> Set.ofArray
-        let entries2 = 
-            map2.Buckets 
-            |> Array.collect Set.toArray
-            |> Set.ofArray
-        entries1 = entries2
+        map1.Buckets
+        |> Array.forall (fun bucket1 ->
+            bucket1 |> Set.forall (fun (k, v) ->
+                let bucketIndex = getBucketIndex map2 k
+                let bucket2 = map2.Buckets.[bucketIndex]
+                bucket2 |> Set.exists (fun (k2, v2) -> k = k2 && v = v2)))
 
 
 let merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
