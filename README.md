@@ -72,11 +72,10 @@ Filter
 ```
 Merge  
 ```
-    static member Merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) =
-        if map1.BucketCount <> map2.BucketCount then
-            failwith "Both hash maps must have the same number of buckets to merge"
-        else
-            let mergedBuckets =
-                Array.map2 (fun b1 b2 -> Set.union b1 b2) map1.Buckets map2.Buckets
-            SeparateChainingHashMap(mergedBuckets, map1.HashFunction)
+let merge (map1: SeparateChainingHashMap<'k, 'v>) (map2: SeparateChainingHashMap<'k, 'v>) : SeparateChainingHashMap<'k, 'v> =
+    map1.Buckets
+    |> Array.fold (fun acc bucket ->
+        bucket
+        |> Set.fold (fun accMap (k, v) -> add k v accMap) acc
+    ) map2
 ```
