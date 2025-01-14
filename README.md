@@ -43,11 +43,10 @@ member private this.Rehash (newBucketCount: int) =
 ```
 Map  
 ```
-    member this.Map (f: 'k -> 'v -> 'v) =
-        let mappedBuckets =
-            buckets
-            |> Array.map (Set.map (fun (k, v) -> (k, f k v)))
-        SeparateChainingHashMap(mappedBuckets, hashFunction)
+let map (f: 'k -> 'v -> 'u) (map: SeparateChainingHashMap<'k, 'v>): SeparateChainingHashMap<'k, 'u> =
+    let mappedBuckets =
+        map.Buckets |> Array.map (Set.map (fun (k, v) -> (k, f k v)))
+    { Buckets = mappedBuckets; HashFunction = map.HashFunction}
 ```
 Filter  
 ```
